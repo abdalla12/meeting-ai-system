@@ -1,0 +1,113 @@
+{
+    "settings": {
+        "number_of_shards": 2,
+        "number_of_replicas": 1,
+        "analysis": {
+            "analyzer": {
+                "meeting_analyzer": {
+                    "type": "custom",
+                    "tokenizer": "standard",
+                    "filter": [
+                        "lowercase",
+                        "stop",
+                        "snowball"
+                    ]
+                },
+                "korean_analyzer": {
+                    "type": "custom",
+                    "tokenizer": "standard",
+                    "filter": [
+                        "lowercase"
+                    ]
+                }
+            }
+        }
+    },
+    "mappings": {
+        "properties": {
+            "meeting_id": {
+                "type": "keyword"
+            },
+            "segment_id": {
+                "type": "keyword"
+            },
+            "speaker_label": {
+                "type": "keyword"
+            },
+            "speaker_name": {
+                "type": "keyword"
+            },
+            "content": {
+                "type": "text",
+                "analyzer": "meeting_analyzer",
+                "fields": {
+                    "raw": {
+                        "type": "keyword"
+                    },
+                    "korean": {
+                        "type": "text",
+                        "analyzer": "korean_analyzer"
+                    }
+                }
+            },
+            "translated_content": {
+                "type": "text",
+                "analyzer": "meeting_analyzer"
+            },
+            "language": {
+                "type": "keyword"
+            },
+            "start_time": {
+                "type": "float"
+            },
+            "end_time": {
+                "type": "float"
+            },
+            "meeting_title": {
+                "type": "text",
+                "analyzer": "meeting_analyzer",
+                "fields": {
+                    "raw": {
+                        "type": "keyword"
+                    }
+                }
+            },
+            "meeting_topic": {
+                "type": "text",
+                "analyzer": "meeting_analyzer"
+            },
+            "summary": {
+                "type": "text",
+                "analyzer": "meeting_analyzer"
+            },
+            "action_items": {
+                "type": "nested",
+                "properties": {
+                    "description": {
+                        "type": "text",
+                        "analyzer": "meeting_analyzer"
+                    },
+                    "assignee": {
+                        "type": "keyword"
+                    },
+                    "priority": {
+                        "type": "keyword"
+                    },
+                    "status": {
+                        "type": "keyword"
+                    }
+                }
+            },
+            "created_at": {
+                "type": "date",
+                "format": "strict_date_optional_time||epoch_millis"
+            },
+            "embedding_vector": {
+                "type": "dense_vector",
+                "dims": 384,
+                "index": true,
+                "similarity": "cosine"
+            }
+        }
+    }
+}

@@ -1,0 +1,329 @@
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: speech-service
+  namespace: meeting-ai
+  labels:
+    app: speech-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: speech-service
+  template:
+    metadata:
+      labels:
+        app: speech-service
+    spec:
+      containers:
+        - name: speech-service
+          image: ghcr.io/meeting-ai/speech-service:latest
+          ports:
+            - containerPort: 8001
+          env:
+            - name: DEVICE
+              value: "cpu"
+            - name: WHISPER_MODEL_SIZE
+              value: "base"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 20
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: speech-service
+  namespace: meeting-ai
+spec:
+  selector:
+    app: speech-service
+  ports:
+    - port: 8001
+      targetPort: 8001
+  type: ClusterIP
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: diarization-service
+  namespace: meeting-ai
+  labels:
+    app: diarization-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: diarization-service
+  template:
+    metadata:
+      labels:
+        app: diarization-service
+    spec:
+      containers:
+        - name: diarization-service
+          image: ghcr.io/meeting-ai/diarization-service:latest
+          ports:
+            - containerPort: 8002
+          env:
+            - name: DEVICE
+              value: "cpu"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: diarization-service
+  namespace: meeting-ai
+spec:
+  selector:
+    app: diarization-service
+  ports:
+    - port: 8002
+      targetPort: 8002
+  type: ClusterIP
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: translation-service
+  namespace: meeting-ai
+  labels:
+    app: translation-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: translation-service
+  template:
+    metadata:
+      labels:
+        app: translation-service
+    spec:
+      containers:
+        - name: translation-service
+          image: ghcr.io/meeting-ai/translation-service:latest
+          ports:
+            - containerPort: 8003
+          env:
+            - name: DEVICE
+              value: "cpu"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+            limits:
+              cpu: "1000m"
+              memory: "4Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: translation-service
+  namespace: meeting-ai
+spec:
+  selector:
+    app: translation-service
+  ports:
+    - port: 8003
+      targetPort: 8003
+  type: ClusterIP
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: summarization-service
+  namespace: meeting-ai
+  labels:
+    app: summarization-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: summarization-service
+  template:
+    metadata:
+      labels:
+        app: summarization-service
+    spec:
+      containers:
+        - name: summarization-service
+          image: ghcr.io/meeting-ai/summarization-service:latest
+          ports:
+            - containerPort: 8004
+          env:
+            - name: DEVICE
+              value: "cpu"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: summarization-service
+  namespace: meeting-ai
+spec:
+  selector:
+    app: summarization-service
+  ports:
+    - port: 8004
+      targetPort: 8004
+  type: ClusterIP
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: meeting-ai
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: ghcr.io/meeting-ai/frontend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_SPEECH_API
+              value: "http://speech-service:8001"
+            - name: NEXT_PUBLIC_DIARIZATION_API
+              value: "http://diarization-service:8002"
+            - name: NEXT_PUBLIC_TRANSLATION_API
+              value: "http://translation-service:8003"
+            - name: NEXT_PUBLIC_SUMMARIZATION_API
+              value: "http://summarization-service:8004"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: meeting-ai
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: LoadBalancer
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: meeting-ai-ingress
+  namespace: meeting-ai
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: meeting-ai.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+          - path: /api/speech
+            pathType: Prefix
+            backend:
+              service:
+                name: speech-service
+                port:
+                  number: 8001
+          - path: /api/diarization
+            pathType: Prefix
+            backend:
+              service:
+                name: diarization-service
+                port:
+                  number: 8002
+          - path: /api/translation
+            pathType: Prefix
+            backend:
+              service:
+                name: translation-service
+                port:
+                  number: 8003
+          - path: /api/summarization
+            pathType: Prefix
+            backend:
+              service:
+                name: summarization-service
+                port:
+                  number: 8004
+---
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: meeting-ai

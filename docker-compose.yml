@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: meeting-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - meeting-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: meeting-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - meeting-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: meeting-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: meeting_ai
+      POSTGRES_USER: meeting_user
+      POSTGRES_PASSWORD: meeting_pass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./services/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - meeting-net
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: meeting-elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - meeting-net
+
+  speech-service:
+    build: ./services/speech-service
+    container_name: meeting-speech
+    ports:
+      - "8001:8001"
+    environment:
+      - DEVICE=cpu
+      - WHISPER_MODEL_SIZE=base
+    depends_on:
+      - kafka
+    networks:
+      - meeting-net
+
+  diarization-service:
+    build: ./services/diarization-service
+    container_name: meeting-diarization
+    ports:
+      - "8002:8002"
+    environment:
+      - DEVICE=cpu
+    depends_on:
+      - kafka
+    networks:
+      - meeting-net
+
+  translation-service:
+    build: ./services/translation-service
+    container_name: meeting-translation
+    ports:
+      - "8003:8003"
+    environment:
+      - DEVICE=cpu
+    depends_on:
+      - kafka
+    networks:
+      - meeting-net
+
+  summarization-service:
+    build: ./services/summarization-service
+    container_name: meeting-summarization
+    ports:
+      - "8004:8004"
+    environment:
+      - DEVICE=cpu
+    depends_on:
+      - kafka
+    networks:
+      - meeting-net
+
+  frontend:
+    build: ./frontend
+    container_name: meeting-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_SPEECH_API=http://speech-service:8001
+      - NEXT_PUBLIC_DIARIZATION_API=http://diarization-service:8002
+      - NEXT_PUBLIC_TRANSLATION_API=http://translation-service:8003
+      - NEXT_PUBLIC_SUMMARIZATION_API=http://summarization-service:8004
+    depends_on:
+      - speech-service
+      - diarization-service
+      - translation-service
+      - summarization-service
+    networks:
+      - meeting-net
+
+networks:
+  meeting-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  esdata:

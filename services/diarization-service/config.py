@@ -1,0 +1,8 @@
+
+DEVICE: str = "cpu"
+DEFAULT_NUM_SPEAKERS: int = 2
+MIN_SPEAKERS: int = 1
+MAX_SPEAKERS: int = 10
+SERVICE_VERSION: str = "1.0.0"
+
+HF_AUTH_TOKEN: str = ""
